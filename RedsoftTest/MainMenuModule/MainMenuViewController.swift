@@ -59,6 +59,23 @@ final class MainMenuViewController: UIViewController {
     
   }
   
+  func updateProducts(with product: ProductsResponse.DataResponse?) {
+    var newProducts = ProductsResponse(data: [])
+    
+    self.products?.data.forEach { element in
+      if element.id == product?.id {
+        if let product = product {
+          newProducts.data.append(product)
+          return
+        }
+      }
+      
+      newProducts.data.append(element)
+    }
+    
+    products = newProducts
+  }
+  
   private func reloadTableView() {
     DispatchQueue.main.async { [weak self] in
       self?.tableView.reloadData()
@@ -121,27 +138,6 @@ extension MainMenuViewController: UISearchResultsUpdating {
   }
 }
 
-// MARK: - ProductInfoDelegate Methods
-
-extension MainMenuViewController: ProductInfoDelegate {
-  func updateProducts(with product: ProductsResponse.DataResponse?) {
-    var newProducts = ProductsResponse(data: [])
-    
-    self.products?.data.forEach { element in
-      if element.id == product?.id {
-        if let product = product {
-          newProducts.data.append(product)
-          return
-        }
-      }
-      
-      newProducts.data.append(element)
-    }
-    
-    products = newProducts
-  }
-}
-
 // MARK: - UITableViewDataSource Methods
 
 extension MainMenuViewController: UITableViewDataSource {
@@ -161,8 +157,15 @@ extension MainMenuViewController: UITableViewDelegate {
     tableView.deselectRow(at: indexPath, animated: true)
     
     if let viewController = UIStoryboard(name: "ProductInfo", bundle: nil).instantiateViewController(withIdentifier: "ProductInfoViewController") as? ProductInfoViewController {
-      viewController.product = products?.data[indexPath.row]
-      viewController.delegate = self
+      
+      if let product = products?.data[indexPath.row] {
+        viewController.productSubject.accept([product])
+      }
+      
+      viewController.product.subscribe(onNext: { event in
+        self.updateProducts(with: event.first)
+      }).disposed(by: disposeBag)
+      
       if let navigator = navigationController {
         navigator.pushViewController(viewController, animated: true)
       }
